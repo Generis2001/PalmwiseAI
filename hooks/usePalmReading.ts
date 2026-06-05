@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { useAccount, usePublicClient } from "wagmi";
 import { compressPalmImage } from "@/lib/imageUtils";
+import { buildPalmDescription } from "@/lib/palmAnalyzer";
 import { encodeLLMRequest } from "@/lib/ritual/encodeLLMRequest";
 import { decodeReading, type PalmReading, type RitualReceipt } from "@/lib/ritual/decodeReading";
 import { generateEphemeralKeypair } from "@/lib/ecies";
@@ -48,18 +49,9 @@ export function usePalmReading() {
         setStatus("compressing");
         const base64Image = await compressPalmImage(file);
 
-        // Step 2: Analyze palm features with Gemini free vision API (off-chain)
+        // Step 2: Analyze palm features using client-side Canvas analysis (no API calls)
         setStatus("analyzing");
-        const analyzeRes = await fetch("/api/analyze-palm", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: base64Image }),
-        });
-        if (!analyzeRes.ok) {
-          const errData = await analyzeRes.json() as { error?: string };
-          throw new Error(errData.error ?? "Palm analysis failed");
-        }
-        const { description } = await analyzeRes.json() as { description: string };
+        const description = await buildPalmDescription(base64Image);
 
         // Step 3: Fetch active LLM executor from Ritual TEEServiceRegistry
         setStatus("fetching-executor");
@@ -74,7 +66,7 @@ export function usePalmReading() {
         localStorage.setItem(`palmwise_privkey_${address}`, ephemeralPrivKey);
 
         // Step 5: Encode LLM precompile input (30-field ABI)
-        // Gemini's palm description becomes the user prompt; GLM-4.7-FP8 generates the structured reading
+        // Canvas-analyzed palm description becomes the user prompt; GLM-4.7-FP8 generates the structured reading
         const llmInput = encodeLLMRequest({
           executor,
           userPublicKey,
