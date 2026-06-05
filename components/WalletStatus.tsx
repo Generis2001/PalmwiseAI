@@ -17,7 +17,6 @@ export function WalletStatus() {
   const [depositing, setDepositing] = useState(false);
   const [locking, setLocking] = useState(false);
 
-  // Lock for 100k blocks (~14 hours at 0.5s/block) ahead of current
   const LOCK_DURATION = 100_000n;
 
   async function handleDeposit() {
@@ -48,7 +47,6 @@ export function WalletStatus() {
   const currentBlockNum = currentBlock ? Number(currentBlock) : 0;
   const blocksLeft = Math.max(0, locksAtBlock - currentBlockNum);
 
-  // No balance at all
   if (!hasBalance) {
     return (
       <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 px-4 py-3 flex items-center justify-between gap-4 text-sm">
@@ -72,8 +70,7 @@ export function WalletStatus() {
     );
   }
 
-  // Has balance but lock is expired or missing
-  if (hasBalance && !hasActiveLock) {
+  if (!hasActiveLock) {
     return (
       <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 px-4 py-3 flex items-center justify-between gap-4 text-sm">
         <div>
@@ -82,7 +79,7 @@ export function WalletStatus() {
             {balanceEth.toFixed(4)} RITUAL
           </span>
           <p className="text-xs text-orange-400/80 mt-0.5">
-            Lock expired (block {locksAtBlock.toLocaleString()}) — activate lock to submit
+            Lock expired — activate to avoid submission errors
           </p>
         </div>
         <button
@@ -96,7 +93,6 @@ export function WalletStatus() {
     );
   }
 
-  // All good
   return (
     <div className="rounded-lg border border-[#19D184]/30 bg-[#19D184]/5 px-4 py-3 flex items-center justify-between gap-4 text-sm">
       <div>

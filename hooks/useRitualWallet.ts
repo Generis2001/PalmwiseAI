@@ -68,8 +68,9 @@ export function useRitualWallet() {
     currentBlock !== undefined &&
     lockUntil > currentBlock + LOCK_BUFFER;
 
-  // Both conditions must be met to allow a reading submission
-  const hasSufficientFunds = hasBalance && hasActiveLock;
+  // hasSufficientFunds only checks balance — used to gate the submit button.
+  // Lock status is surfaced separately via hasActiveLock for informational display.
+  const hasSufficientFunds = hasBalance;
 
   async function refetchAll() {
     await Promise.all([refetchBalance(), refetchLock()]);
