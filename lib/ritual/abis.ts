@@ -134,4 +134,37 @@ export const teeRegistryAbi = [
     outputs: [{ name: "", type: "address[]" }],
     stateMutability: "view",
   },
+  {
+    // getServicesByCapability(uint8 capability, bool activeOnly)
+    // Returns array of ServiceInfo structs. Each has a nested NodeInfo:
+    //   services[i].node.teeAddress  — executor address for the LLM precompile
+    //   services[i].node.publicKey   — 65-byte uncompressed secp256k1 key
+    type: "function",
+    name: "getServicesByCapability",
+    inputs: [
+      { name: "capability", type: "uint8" },
+      { name: "activeOnly", type: "bool" },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "tuple[]",
+        components: [
+          {
+            name: "node",
+            type: "tuple",
+            components: [
+              { name: "teeAddress", type: "address" },
+              { name: "publicKey", type: "bytes" },
+              { name: "enodeUrl", type: "string" },
+              { name: "walletAddress", type: "address" },
+              { name: "isActive", type: "bool" },
+            ],
+          },
+          { name: "capabilities", type: "uint8[]" },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
 ] as const;
