@@ -7,6 +7,7 @@ import { buildPalmDescription } from "@/lib/palmAnalyzer";
 import { encodeLLMRequest } from "@/lib/ritual/encodeLLMRequest";
 import { decodeReading, type PalmReading, type RitualReceipt } from "@/lib/ritual/decodeReading";
 import { generateEphemeralKeypair } from "@/lib/ecies";
+import { parseEther } from "viem";
 import { palmWiseAbi, ritualWalletAbi } from "@/lib/ritual/abis";
 import { RITUAL_WALLET_ADDRESS } from "@/lib/ritual/addresses";
 import { useRitualWrite } from "./useRitualWrite";
@@ -88,7 +89,7 @@ export function usePalmReading() {
             abi: ritualWalletAbi,
             functionName: "deposit",
             args: [LOCK_DURATION],
-            value: 0n,
+            value: parseEther("0.001"),
           });
           await publicClient.waitForTransactionReceipt({ hash: lockTx });
         }
