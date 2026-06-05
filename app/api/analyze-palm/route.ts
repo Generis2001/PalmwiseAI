@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 // of palm features for the Ritual LLM precompile to interpret
 
 const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 
 const ANALYSIS_PROMPT = `You are an expert palmist. Analyze this palm image and provide a detailed, precise description of the following features. Be specific about what you actually observe — line depth, length, curvature, breaks, branches, color, and hand proportions.
 
@@ -62,19 +62,16 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(geminiBody),
     });
 
-    // Retry up to 3 times on 429 with exponential backoff
-    // Free tier: 15 requests per minute
-    for (let attempt = 0; attempt < 3; attempt++) {
-      if (res.status === 429) {
-        const retryAfter = Number(res.headers.get("Retry-After") ?? "5");
-        const delay = Math.min(retryAfter * (attempt + 1), 20) * 1000;
-        await new Promise((r) => setTimeout(r, delay));
-        res = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(geminiBody),
-        });
-      }
+    // On 429, wait for the rate limit window to reset before retrying once
+    // Free tier: 15 requests per minute (rolling window)
+    if (res.status === 429) {
+      const delay = 60 * 1000; // wait a full minute for window reset
+      await new Promise((r) => setTimeout(r, delay));
+      res = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(geminiBody),
+      });
     }
 
     if (!res.ok) {

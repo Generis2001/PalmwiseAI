@@ -34,6 +34,7 @@ export function usePalmReading() {
   const [readingHash, setReadingHash] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [failedAt, setFailedAt] = useState<ReadingStatus | null>(null);
 
   const submitReading = useCallback(
     async (file: File) => {
@@ -141,6 +142,7 @@ export function usePalmReading() {
         return { reading: decoded, hash: onChainHash, txHash: hash };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Unknown error";
+        setFailedAt(status);
         setError(msg);
         setStatus("failed");
         throw err;
@@ -155,7 +157,8 @@ export function usePalmReading() {
     setReadingHash(null);
     setTxHash(null);
     setError(null);
+    setFailedAt(null);
   }
 
-  return { submitReading, status, reading, readingHash, txHash, error, reset };
+  return { submitReading, status, reading, readingHash, txHash, error, failedAt, reset };
 }

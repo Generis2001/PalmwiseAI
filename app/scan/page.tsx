@@ -15,7 +15,7 @@ import { useRitualWallet } from "@/hooks/useRitualWallet";
 
 export default function ScanPage() {
   const { isConnected } = useAccount();
-  const { submitReading, status, reading, readingHash, txHash, error, reset } =
+  const { submitReading, status, reading, readingHash, txHash, error, failedAt, reset } =
     usePalmReading();
   const { isLocked } = useSenderLock();
   const { hasSufficientFunds } = useRitualWallet();
@@ -86,7 +86,7 @@ export default function ScanPage() {
               </div>
             )}
 
-            {status !== "idle" && <JobStatusBar status={status} error={error} />}
+            {status !== "idle" && <JobStatusBar status={status} error={error} failedAt={status === "failed" ? failedAt : null} />}
 
             {status === "complete" && reading ? (
               <ReadingDisplay reading={reading} txHash={txHash} />

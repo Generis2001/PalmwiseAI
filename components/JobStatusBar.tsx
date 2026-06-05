@@ -5,6 +5,7 @@ import { type ReadingStatus } from "@/hooks/usePalmReading";
 interface Props {
   status: ReadingStatus;
   error?: string | null;
+  failedAt?: ReadingStatus | null;
 }
 
 const STEPS: { key: ReadingStatus; label: string }[] = [
@@ -33,18 +34,20 @@ function stepIndex(s: ReadingStatus) {
   return ORDER.indexOf(s);
 }
 
-export function JobStatusBar({ status, error }: Props) {
+export function JobStatusBar({ status, error, failedAt }: Props) {
   if (status === "idle") return null;
 
   const currentIdx = stepIndex(status);
   const failed = status === "failed";
+  const failedIdx = failed && failedAt ? stepIndex(failedAt) : -1;
 
   return (
     <div className="w-full rounded-xl bg-gray-900 border border-gray-800 p-4">
       <div className="flex items-center justify-between gap-1 flex-wrap">
         {STEPS.map((step, i) => {
-          const done = !failed && currentIdx > i;
+          const done = failed ? failedIdx > i : currentIdx > i;
           const active = !failed && currentIdx === i;
+          const isFail = failed && failedIdx === i;
           const isLast = i === STEPS.length - 1;
 
           return (
@@ -56,7 +59,7 @@ export function JobStatusBar({ status, error }: Props) {
                       ? "bg-[#19D184] text-black"
                       : active
                       ? "bg-[#19D184]/20 border-2 border-[#19D184] text-[#19D184] animate-pulse"
-                      : failed
+                      : isFail
                       ? "bg-red-500/20 border-2 border-red-500 text-red-400"
                       : "bg-gray-800 border border-gray-700 text-gray-600"
                   }`}
