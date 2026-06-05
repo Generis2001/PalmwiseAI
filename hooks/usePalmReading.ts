@@ -11,12 +11,11 @@ import { parseEther } from "viem";
 import { palmWiseAbi, ritualWalletAbi } from "@/lib/ritual/abis";
 import { RITUAL_WALLET_ADDRESS } from "@/lib/ritual/addresses";
 import { useRitualWrite } from "./useRitualWrite";
+import type { PublicClient } from "viem";
 
 const PALMWISE_CONTRACT = process.env
   .NEXT_PUBLIC_PALMWISE_CONTRACT_ADDRESS as `0x${string}`;
 
-// How many blocks ahead the lock must extend past the TTL.
-// TTL in the LLM request is 300 blocks; we lock for 100k blocks (~14 hrs).
 const LOCK_DURATION = 100_000n;
 
 export type ReadingStatus =
@@ -31,6 +30,55 @@ export type ReadingStatus =
   | "settling"
   | "complete"
   | "failed";
+
+// Polls getTransactionReceipt every intervalMs until a settled Ritual receipt
+// (one with spcCalls) is found, or maxAttempts is exhausted.
+// RPC errors are swallowed silently so a flaky node never kills the flow.
+async function pollForRitualReceipt(
+  client: PublicClient,
+  hash: `0x${string}`,
+  intervalMs = 5_000,
+  maxAttempts = 120  // 10 minutes at 5s intervals
+): Promise<RitualReceipt> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const receipt = await client.getTransactionReceipt({ hash });
+      if (receipt) {
+        const ritual = receipt as unknown as RitualReceipt;
+        // spcCalls present means Phase 2 (TEE settlement) is complete
+        if (ritual.spcCalls && ritual.spcCalls.length > 0) {
+          return ritual;
+        }
+        // Receipt exists but Phase 2 not settled yet — keep polling
+      }
+    } catch {
+      // RPC hiccup — swallow and retry
+    }
+    await new Promise((res) => setTimeout(res, intervalMs));
+  }
+  throw new Error(
+    "Your reading is still being processed on-chain. " +
+    `Transaction ${hash} was submitted — check your history in a few minutes.`
+  );
+}
+
+// Polls until a basic receipt exists (for non-async txs like the lock deposit).
+async function pollForReceipt(
+  client: PublicClient,
+  hash: `0x${string}`,
+  intervalMs = 3_000,
+  maxAttempts = 40  // 2 minutes
+): Promise<void> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const receipt = await client.getTransactionReceipt({ hash });
+      if (receipt) return;
+    } catch {
+      // swallow
+    }
+    await new Promise((res) => setTimeout(res, intervalMs));
+  }
+}
 
 export function usePalmReading() {
   const { address } = useAccount();
@@ -48,6 +96,7 @@ export function usePalmReading() {
   const submitReading = useCallback(
     async (file: File) => {
       if (!address) throw new Error("Wallet not connected");
+      if (!publicClient) throw new Error("No public client");
       setError(null);
       setReading(null);
       setReadingHash(null);
@@ -57,7 +106,7 @@ export function usePalmReading() {
         setStatus("compressing");
         const base64Image = await compressPalmImage(file);
 
-        // Step 2: Analyze palm features using client-side Canvas analysis (no API calls)
+        // Step 2: Analyze palm features using client-side Canvas analysis
         setStatus("analyzing");
         const description = await buildPalmDescription(base64Image);
 
@@ -65,15 +114,10 @@ export function usePalmReading() {
         setStatus("fetching-executor");
         const execRes = await fetch("/api/executor");
         if (!execRes.ok) throw new Error("No active LLM executor available");
-        const { executor } = await execRes.json() as {
-          executor: `0x${string}`;
-        };
+        const { executor } = await execRes.json() as { executor: `0x${string}` };
 
-        // Step 4: Ensure RitualWallet lock is active.
+        // Step 4: Ensure RitualWallet lock is active before submission.
         // The Ritual RPC rejects async payloads when lockUntil <= currentBlock + ttl.
-        // If lock is missing or expired, call deposit(LOCK_DURATION) with 0 value
-        // (this only extends the lock; no additional ETH is sent).
-        if (!publicClient) throw new Error("No public client");
         const currentBlock = await publicClient.getBlockNumber();
         const lockUntil = await publicClient.readContract({
           address: RITUAL_WALLET_ADDRESS,
@@ -81,7 +125,6 @@ export function usePalmReading() {
           functionName: "lockUntil",
           args: [address],
         });
-        // Require lock to extend at least 300 blocks (the LLM request TTL) past now
         if (lockUntil <= currentBlock + 300n) {
           setStatus("locking");
           const lockTx = await writeContractAsync({
@@ -91,23 +134,19 @@ export function usePalmReading() {
             args: [LOCK_DURATION],
             value: parseEther("0.001"),
           });
-          await publicClient.waitForTransactionReceipt({ hash: lockTx });
+          await pollForReceipt(publicClient, lockTx);
         }
 
+        // Step 5: Generate ephemeral keypair — TEE encrypts result to userPublicKey
         const { publicKey: userPublicKey, privateKey: ephemeralPrivKey } =
           generateEphemeralKeypair();
-        // Persist privKey so reading/[hash] page can decrypt even after navigation
         localStorage.setItem(`palmwise_privkey_${address}`, ephemeralPrivKey);
 
-        // Step 5: Encode LLM precompile input (30-field ABI)
-        // Canvas-analyzed palm description becomes the user prompt; GLM-4.7-FP8 generates the structured reading
-        const llmInput = encodeLLMRequest({
-          executor,
-          userPublicKey,
-          prompt: description,
-        });
+        // Step 6: Encode LLM precompile input (30-field ABI)
+        const llmInput = encodeLLMRequest({ executor, userPublicKey, prompt: description });
 
-        // Step 6: Send transaction (bypasses eth_call simulation via useRitualWrite)
+        // Step 7: Send transaction — immediately returns hash, does NOT wait for receipt.
+        // Ritual async settlement can take 2-5+ minutes; we poll manually below.
         setStatus("submitting");
         const hash = await writeAsync({
           address: PALMWISE_CONTRACT,
@@ -119,34 +158,24 @@ export function usePalmReading() {
         setTxHash(hash);
         setStatus("committed");
 
-        // Step 7: Wait for receipt and extract spcCalls result.
-        // Ritual async settlement (Phase 2) requires the TEE to run GLM and write
-        // the result back on-chain — this can take 2–5 minutes. Use a 10-minute
-        // timeout with a 3-second polling interval so we don't miss the receipt.
+        // Step 8: Poll for receipt manually — never fails due to RPC timeout.
+        // getTransactionReceipt errors are swallowed; only spcCalls signals completion.
         setStatus("processing");
-        const receipt = await publicClient.waitForTransactionReceipt({
-          hash,
-          timeout: 600_000,      // 10 minutes
-          pollingInterval: 3_000, // check every 3 seconds
-        });
+        const ritualReceipt = await pollForRitualReceipt(publicClient, hash);
 
         setStatus("settling");
-        const ritualReceipt = receipt as unknown as RitualReceipt;
         const spcCalls = ritualReceipt.spcCalls;
         if (!spcCalls || spcCalls.length === 0) {
           throw new Error("No SPC result in receipt — LLM precompile may have failed");
         }
 
-        // Step 8: Decode and decrypt the reading
+        // Step 9: Decode and decrypt the reading
         const decoded = decodeReading(spcCalls[0].output, ephemeralPrivKey);
         setReading(decoded);
 
-        // Derive the hash from the on-chain ReadingCreated event
-        // keccak256("ReadingCreated(address,bytes32,uint256)")
-        // keccak256("ReadingCreated(address,bytes32,uint256)")
-      const READING_CREATED_TOPIC =
-        "0x215c21c305c637e50dca2824eee5aad96446a1273047552aed48959e24833c77";
-        const event = receipt.logs.find((log) =>
+        const READING_CREATED_TOPIC =
+          "0x215c21c305c637e50dca2824eee5aad96446a1273047552aed48959e24833c77";
+        const event = ritualReceipt.logs?.find((log) =>
           (log as { topics?: string[] }).topics?.[0] === READING_CREATED_TOPIC
         );
         const onChainHash = event
@@ -155,7 +184,7 @@ export function usePalmReading() {
 
         if (onChainHash) {
           setReadingHash(onChainHash);
-          // Step 9: Persist encrypted reading to Neon
+          // Step 10: Persist encrypted reading to Neon
           await fetch("/api/readings", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -164,7 +193,7 @@ export function usePalmReading() {
               readingHash: onChainHash,
               encryptedReading: spcCalls[0].output,
               txHash: hash,
-              blockNumber: Number(receipt.blockNumber),
+              blockNumber: Number(ritualReceipt.blockNumber),
               archetype: decoded.archetype,
             }),
           });
@@ -176,11 +205,15 @@ export function usePalmReading() {
         const msg = err instanceof Error ? err.message : "Unknown error";
         setFailedAt(status);
         setError(msg);
-        setStatus("failed");
+        // Do not mark as failed if we already have a txHash — tx was submitted
+        // and is still processing on-chain. Keep status as-is so user sees context.
+        if (!txHash) {
+          setStatus("failed");
+        }
         throw err;
       }
     },
-    [address, publicClient, writeAsync, writeContractAsync]
+    [address, publicClient, writeAsync, writeContractAsync, status, txHash]
   );
 
   function reset() {

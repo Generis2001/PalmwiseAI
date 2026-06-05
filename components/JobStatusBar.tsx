@@ -89,7 +89,9 @@ export function JobStatusBar({ status, error, failedAt }: Props) {
       </div>
 
       {failed && error && (
-        <p className="mt-3 text-sm text-red-400 text-center">{error}</p>
+        <p className={`mt-3 text-sm text-center ${error.includes("still being processed") ? "text-yellow-400" : "text-red-400"}`}>
+          {error}
+        </p>
       )}
     </div>
   );
