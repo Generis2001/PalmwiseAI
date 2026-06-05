@@ -5,6 +5,7 @@ import { getDefaultConfig, RainbowKitProvider, darkTheme } from "@rainbow-me/rai
 import { WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ritualChain } from "@/lib/ritual/chain";
+import { ChainGuard } from "@/components/ChainGuard";
 
 const config = getDefaultConfig({
   appName: "PalmWise AI",
@@ -27,6 +28,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           })}
         >
           {children}
+          <ChainGuard />
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
