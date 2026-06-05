@@ -119,9 +119,16 @@ export function usePalmReading() {
         setTxHash(hash);
         setStatus("committed");
 
-        // Step 7: Wait for receipt and extract spcCalls result
+        // Step 7: Wait for receipt and extract spcCalls result.
+        // Ritual async settlement (Phase 2) requires the TEE to run GLM and write
+        // the result back on-chain — this can take 2–5 minutes. Use a 10-minute
+        // timeout with a 3-second polling interval so we don't miss the receipt.
         setStatus("processing");
-        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        const receipt = await publicClient.waitForTransactionReceipt({
+          hash,
+          timeout: 600_000,      // 10 minutes
+          pollingInterval: 3_000, // check every 3 seconds
+        });
 
         setStatus("settling");
         const ritualReceipt = receipt as unknown as RitualReceipt;
