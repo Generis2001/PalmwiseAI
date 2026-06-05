@@ -5,8 +5,7 @@ export const ritualChain = defineChain({
   name: "Ritual",
   nativeCurrency: { name: "RITUAL", symbol: "RITUAL", decimals: 18 },
   rpcUrls: {
-    default: { http: ["/api/rpc"] },
-    public: { http: ["https://rpc.ritualfoundation.org"] },
+    default: { http: ["https://rpc.ritualfoundation.org"] },
   },
   blockExplorers: {
     default: {

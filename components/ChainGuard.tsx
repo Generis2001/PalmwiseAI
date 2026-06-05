@@ -29,8 +29,14 @@ export function ChainGuard() {
           Switch to Ritual Chain
         </button>
         <p className="text-xs text-gray-600">
-          If the chain isn&apos;t in your wallet yet, your wallet will prompt
-          you to add it automatically.
+          Your wallet will prompt you to add Ritual Chain if it isn&apos;t
+          configured yet. If the prompt doesn&apos;t appear, add it manually:
+          RPC —{" "}
+          <span className="text-gray-400">
+            https://rpc.ritualfoundation.org
+          </span>
+          , Chain ID —{" "}
+          <span className="text-gray-400">1979</span>
         </p>
       </div>
     </div>
