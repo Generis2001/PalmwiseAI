@@ -38,7 +38,7 @@ export function useRitualWallet() {
   }
 
   const balanceEth = balance ? Number(balance) / 1e18 : 0;
-  const hasSufficientFunds = balanceEth >= 0.02;
+  const hasSufficientFunds = balanceEth >= 0.4;
 
   return { balance, balanceEth, lockUntil, deposit, hasSufficientFunds, refetchBalance };
 }

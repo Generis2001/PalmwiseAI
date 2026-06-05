@@ -86,13 +86,7 @@ export default function ScanPage() {
               </div>
             )}
 
-            {status !== "idle" && <JobStatusBar status={status} />}
-
-            {error && status === "failed" && (
-              <div className="rounded-lg bg-red-950/40 border border-red-800/40 p-4 text-sm text-red-400">
-                {error}
-              </div>
-            )}
+            {status !== "idle" && <JobStatusBar status={status} error={error} />}
 
             {status === "complete" && reading ? (
               <ReadingDisplay reading={reading} txHash={txHash} />

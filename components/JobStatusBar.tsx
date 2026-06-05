@@ -2,6 +2,11 @@
 
 import { type ReadingStatus } from "@/hooks/usePalmReading";
 
+interface Props {
+  status: ReadingStatus;
+  error?: string | null;
+}
+
 const STEPS: { key: ReadingStatus; label: string }[] = [
   { key: "compressing", label: "Compressing" },
   { key: "analyzing", label: "AI Vision" },
@@ -28,7 +33,7 @@ function stepIndex(s: ReadingStatus) {
   return ORDER.indexOf(s);
 }
 
-export function JobStatusBar({ status }: { status: ReadingStatus }) {
+export function JobStatusBar({ status, error }: Props) {
   if (status === "idle") return null;
 
   const currentIdx = stepIndex(status);
@@ -78,10 +83,8 @@ export function JobStatusBar({ status }: { status: ReadingStatus }) {
         })}
       </div>
 
-      {failed && (
-        <p className="mt-3 text-sm text-red-400 text-center">
-          Transaction failed. Check your RITUAL balance and try again.
-        </p>
+      {failed && error && (
+        <p className="mt-3 text-sm text-red-400 text-center">{error}</p>
       )}
     </div>
   );

@@ -62,16 +62,19 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(geminiBody),
     });
 
-    // Retry once on 429 — free tier has 15 RPM limit
-    if (res.status === 429) {
-      const retryAfter = Number(res.headers.get("Retry-After") ?? "5");
-      const delay = Math.min(retryAfter, 10) * 1000;
-      await new Promise((r) => setTimeout(r, delay));
-      res = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(geminiBody),
-      });
+    // Retry up to 3 times on 429 with exponential backoff
+    // Free tier: 15 requests per minute
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (res.status === 429) {
+        const retryAfter = Number(res.headers.get("Retry-After") ?? "5");
+        const delay = Math.min(retryAfter * (attempt + 1), 20) * 1000;
+        await new Promise((r) => setTimeout(r, delay));
+        res = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(geminiBody),
+        });
+      }
     }
 
     if (!res.ok) {

@@ -11,7 +11,7 @@ export function WalletStatus() {
   async function handleDeposit() {
     setDepositing(true);
     try {
-      await deposit("0.02", 5000n);
+      await deposit("0.4", 5000n);
       await refetchBalance();
     } catch {
       // user rejected or failed
@@ -44,7 +44,7 @@ export function WalletStatus() {
           disabled={depositing}
           className="px-3 py-1.5 rounded-md bg-yellow-500 text-black text-xs font-bold hover:bg-yellow-400 disabled:opacity-50 transition-colors"
         >
-          {depositing ? "Depositing…" : "Deposit 0.02 RITUAL"}
+          {depositing ? "Depositing…" : "Deposit 0.4 RITUAL"}
         </button>
       )}
     </div>
