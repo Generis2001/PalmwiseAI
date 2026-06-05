@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 // of palm features for the Ritual LLM precompile to interpret
 
 const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
 const ANALYSIS_PROMPT = `You are an expert palmist. Analyze this palm image and provide a detailed, precise description of the following features. Be specific about what you actually observe — line depth, length, curvature, breaks, branches, color, and hand proportions.
 
