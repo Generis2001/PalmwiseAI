@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from "react";
 import { useAccount, usePublicClient } from "wagmi";
-import { encodeFunctionData } from "viem";
 import { compressPalmImage } from "@/lib/imageUtils";
 import { encodeLLMRequest } from "@/lib/ritual/encodeLLMRequest";
 import { decodeReading, type PalmReading, type RitualReceipt } from "@/lib/ritual/decodeReading";
@@ -65,12 +64,9 @@ export function usePalmReading() {
         setStatus("fetching-executor");
         const execRes = await fetch("/api/executor");
         if (!execRes.ok) throw new Error("No active LLM executor available");
-        const { executor, pubKey } = await execRes.json() as {
+        const { executor } = await execRes.json() as {
           executor: `0x${string}`;
-          pubKey: `0x${string}`;
         };
-
-        // Step 4: Generate ephemeral ECIES keypair — TEE will encrypt completionData to this
         const { publicKey: userPublicKey, privateKey: ephemeralPrivKey } =
           generateEphemeralKeypair();
         // Persist privKey so reading/[hash] page can decrypt even after navigation
@@ -87,15 +83,8 @@ export function usePalmReading() {
         // Suppress unused pubKey lint warning — pubKey is returned for potential future use
         void pubKey;
 
-        // Step 6: Encode contract call and send transaction (bypasses eth_call simulation)
+        // Step 6: Send transaction (bypasses eth_call simulation via useRitualWrite)
         setStatus("submitting");
-        const calldata = encodeFunctionData({
-          abi: palmWiseAbi,
-          functionName: "submitReading",
-          args: [llmInput],
-        });
-        void calldata; // calldata encoded for reference; writeAsync handles encoding
-
         const hash = await writeAsync({
           address: PALMWISE_CONTRACT,
           abi: palmWiseAbi as never,
@@ -124,8 +113,9 @@ export function usePalmReading() {
 
         // Derive the hash from the on-chain ReadingCreated event
         // keccak256("ReadingCreated(address,bytes32,uint256)")
-        const READING_CREATED_TOPIC =
-          "0xb0c6d793f26ee4c46ae3a0c1b96bbcdf9a24d0c7dc6c46ff9d2b71c41abcdef1";
+        // keccak256("ReadingCreated(address,bytes32,uint256)")
+      const READING_CREATED_TOPIC =
+        "0x215c21c305c637e50dca2824eee5aad96446a1273047552aed48959e24833c77";
         const event = receipt.logs.find((log) =>
           (log as { topics?: string[] }).topics?.[0] === READING_CREATED_TOPIC
         );
