@@ -1,4 +1,4 @@
-import { decodeAbiParameters, parseAbiParameters, type Hex } from "viem";
+import { decodeAbiParameters, parseAbiParameters, type Hex, type TransactionReceipt } from "viem";
 import { eciesDecryptRaw } from "@/lib/ecies";
 
 export interface PalmReading {
@@ -23,9 +23,9 @@ export interface PalmReading {
   reading_summary: string;
 }
 
-export interface RitualReceipt {
+export type RitualReceipt = TransactionReceipt & {
   spcCalls?: Array<{ input: Hex; output: Hex }>;
-}
+};
 
 export function decodeReading(
   spcOutput: Hex,

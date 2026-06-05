@@ -11,7 +11,8 @@ import { parseEther } from "viem";
 import { palmWiseAbi, ritualWalletAbi } from "@/lib/ritual/abis";
 import { RITUAL_WALLET_ADDRESS } from "@/lib/ritual/addresses";
 import { useRitualWrite } from "./useRitualWrite";
-import type { PublicClient } from "viem";
+
+type PublicClient = NonNullable<ReturnType<typeof usePublicClient>>;
 
 const PALMWISE_CONTRACT = process.env
   .NEXT_PUBLIC_PALMWISE_CONTRACT_ADDRESS as `0x${string}`;
