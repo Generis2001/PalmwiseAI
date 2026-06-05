@@ -80,9 +80,6 @@ export function usePalmReading() {
           prompt: description,
         });
 
-        // Suppress unused pubKey lint warning — pubKey is returned for potential future use
-        void pubKey;
-
         // Step 6: Send transaction (bypasses eth_call simulation via useRitualWrite)
         setStatus("submitting");
         const hash = await writeAsync({
