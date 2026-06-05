@@ -36,6 +36,14 @@ yarn-error.log*
 # vercel
 .vercel
 
+# foundry build artifacts
+contracts/out/
+contracts/broadcast/
+contracts/cache/
+
+# claude
+.claude/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
