@@ -103,6 +103,8 @@ export default function ScanPage() {
                 {isProcessing
                   ? status === "analyzing"
                     ? "Analyzing palm…"
+                    : status === "locking"
+                    ? "Activating lock…"
                     : status === "submitting" || status === "committed"
                     ? "Submitting to Ritual…"
                     : status === "processing" || status === "settling"

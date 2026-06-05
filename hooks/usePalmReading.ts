@@ -1,23 +1,29 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useAccount, usePublicClient } from "wagmi";
+import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import { compressPalmImage } from "@/lib/imageUtils";
 import { buildPalmDescription } from "@/lib/palmAnalyzer";
 import { encodeLLMRequest } from "@/lib/ritual/encodeLLMRequest";
 import { decodeReading, type PalmReading, type RitualReceipt } from "@/lib/ritual/decodeReading";
 import { generateEphemeralKeypair } from "@/lib/ecies";
-import { palmWiseAbi } from "@/lib/ritual/abis";
+import { palmWiseAbi, ritualWalletAbi } from "@/lib/ritual/abis";
+import { RITUAL_WALLET_ADDRESS } from "@/lib/ritual/addresses";
 import { useRitualWrite } from "./useRitualWrite";
 
 const PALMWISE_CONTRACT = process.env
   .NEXT_PUBLIC_PALMWISE_CONTRACT_ADDRESS as `0x${string}`;
+
+// How many blocks ahead the lock must extend past the TTL.
+// TTL in the LLM request is 300 blocks; we lock for 100k blocks (~14 hrs).
+const LOCK_DURATION = 100_000n;
 
 export type ReadingStatus =
   | "idle"
   | "compressing"
   | "analyzing"
   | "fetching-executor"
+  | "locking"
   | "submitting"
   | "committed"
   | "processing"
@@ -29,6 +35,7 @@ export function usePalmReading() {
   const { address } = useAccount();
   const publicClient = usePublicClient();
   const { writeAsync } = useRitualWrite();
+  const { writeContractAsync } = useWriteContract();
 
   const [status, setStatus] = useState<ReadingStatus>("idle");
   const [reading, setReading] = useState<PalmReading | null>(null);
@@ -60,6 +67,32 @@ export function usePalmReading() {
         const { executor } = await execRes.json() as {
           executor: `0x${string}`;
         };
+
+        // Step 4: Ensure RitualWallet lock is active.
+        // The Ritual RPC rejects async payloads when lockUntil <= currentBlock + ttl.
+        // If lock is missing or expired, call deposit(LOCK_DURATION) with 0 value
+        // (this only extends the lock; no additional ETH is sent).
+        if (!publicClient) throw new Error("No public client");
+        const currentBlock = await publicClient.getBlockNumber();
+        const lockUntil = await publicClient.readContract({
+          address: RITUAL_WALLET_ADDRESS,
+          abi: ritualWalletAbi,
+          functionName: "lockUntil",
+          args: [address],
+        });
+        // Require lock to extend at least 300 blocks (the LLM request TTL) past now
+        if (lockUntil <= currentBlock + 300n) {
+          setStatus("locking");
+          const lockTx = await writeContractAsync({
+            address: RITUAL_WALLET_ADDRESS,
+            abi: ritualWalletAbi,
+            functionName: "deposit",
+            args: [LOCK_DURATION],
+            value: 0n,
+          });
+          await publicClient.waitForTransactionReceipt({ hash: lockTx });
+        }
+
         const { publicKey: userPublicKey, privateKey: ephemeralPrivKey } =
           generateEphemeralKeypair();
         // Persist privKey so reading/[hash] page can decrypt even after navigation
@@ -87,7 +120,6 @@ export function usePalmReading() {
 
         // Step 7: Wait for receipt and extract spcCalls result
         setStatus("processing");
-        if (!publicClient) throw new Error("No public client");
         const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
         setStatus("settling");
@@ -140,7 +172,7 @@ export function usePalmReading() {
         throw err;
       }
     },
-    [address, publicClient, writeAsync]
+    [address, publicClient, writeAsync, writeContractAsync]
   );
 
   function reset() {
