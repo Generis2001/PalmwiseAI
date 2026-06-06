@@ -12,6 +12,7 @@ import { WalletStatus } from "@/components/WalletStatus";
 import { usePalmReading } from "@/hooks/usePalmReading";
 import { useSenderLock } from "@/hooks/useSenderLock";
 import { useRitualWallet } from "@/hooks/useRitualWallet";
+import { Watermark } from "@/components/Watermark";
 
 export default function ScanPage() {
   const { isConnected } = useAccount();
@@ -46,6 +47,7 @@ export default function ScanPage() {
 
   return (
     <main className="min-h-screen bg-black text-white">
+      <Watermark />
       {/* Nav */}
       <nav className="border-b border-gray-900 px-6 py-4 flex items-center justify-between">
         <Link href="/">

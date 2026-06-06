@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { PalmWiseLogo } from "@/components/PalmWiseLogo";
+import { Watermark } from "@/components/Watermark";
 
 const ARCHETYPES = [
   {
@@ -33,6 +34,7 @@ const ARCHETYPES = [
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-black text-white">
+      <Watermark />
       {/* Nav */}
         <nav className="border-b border-gray-900 px-6 py-4 flex items-center justify-between">
           <PalmWiseLogo />
