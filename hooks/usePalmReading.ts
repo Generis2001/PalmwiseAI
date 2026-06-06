@@ -32,20 +32,33 @@ export type ReadingStatus =
   | "complete"
   | "failed";
 
+// Uses raw eth_getTransactionReceipt via the RPC proxy so Ritual-specific
+// fields like spcCalls are preserved — viem's parser strips unknown fields.
+async function rawReceipt(hash: string): Promise<RitualReceipt | null> {
+  const res = await fetch("/api/rpc", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method: "eth_getTransactionReceipt",
+      params: [hash],
+      id: 1,
+    }),
+  });
+  const data = (await res.json()) as { result?: RitualReceipt };
+  return data.result ?? null;
+}
+
 async function pollForRitualReceipt(
-  client: PublicClient,
   hash: `0x${string}`,
   intervalMs = 5_000,
   maxAttempts = 120
 ): Promise<RitualReceipt> {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      const receipt = await client.getTransactionReceipt({ hash });
-      if (receipt) {
-        const ritual = receipt as unknown as RitualReceipt;
-        if (ritual.spcCalls && ritual.spcCalls.length > 0) {
-          return ritual;
-        }
+      const receipt = await rawReceipt(hash);
+      if (receipt?.spcCalls && receipt.spcCalls.length > 0) {
+        return receipt;
       }
     } catch {
       // RPC hiccup — swallow and retry
@@ -59,14 +72,13 @@ async function pollForRitualReceipt(
 }
 
 async function pollForReceipt(
-  client: PublicClient,
   hash: `0x${string}`,
   intervalMs = 3_000,
   maxAttempts = 40
 ): Promise<void> {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      const receipt = await client.getTransactionReceipt({ hash });
+      const receipt = await rawReceipt(hash);
       if (receipt) return;
     } catch {
       // swallow
@@ -134,7 +146,7 @@ export function usePalmReading() {
             args: [LOCK_DURATION],
             value: parseEther("0.001"), // must be > 0 or lockUntil stays unchanged
           });
-          await pollForReceipt(publicClient, lockTx);
+          await pollForReceipt(lockTx);
         }
 
         // Step 5: Ephemeral keypair — TEE encrypts response to userPublicKey
@@ -162,7 +174,7 @@ export function usePalmReading() {
         // Step 8: Poll for Phase 2 — spcCalls populated = TEE settled
         setStatus("processing");
         currentStep = "processing";
-        const ritualReceipt = await pollForRitualReceipt(publicClient, hash);
+        const ritualReceipt = await pollForRitualReceipt(hash);
 
         setStatus("settling");
         currentStep = "settling";
