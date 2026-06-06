@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { PalmWiseLogo } from "@/components/PalmWiseLogo";
+import { Watermark } from "@/components/Watermark";
 import type { Reading } from "@/lib/db/schema";
 
 const ARCHETYPE_COLORS: Record<string, string> = {
@@ -32,6 +33,7 @@ export default function HistoryPage() {
 
   return (
     <main className="min-h-screen bg-black text-white">
+      <Watermark />
       <nav className="border-b border-gray-900 px-6 py-4 flex items-center justify-between">
         <Link href="/">
           <PalmWiseLogo />
@@ -92,15 +94,23 @@ export default function HistoryPage() {
                     className="flex items-center justify-between rounded-xl bg-gray-900 border border-gray-800 p-4 hover:border-gray-600 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: color }}
-                      />
-                      <div>
+                      {r.palmImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={`data:image/jpeg;base64,${r.palmImage}`}
+                          alt="palm"
+                          className="w-12 h-12 rounded-lg object-cover border border-gray-700 flex-shrink-0"
+                        />
+                      ) : (
                         <div
-                          className="text-sm font-semibold"
-                          style={{ color }}
+                          className="w-12 h-12 rounded-lg border border-gray-700 flex-shrink-0 flex items-center justify-center"
+                          style={{ backgroundColor: `${color}15` }}
                         >
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                        </div>
+                      )}
+                      <div>
+                        <div className="text-sm font-semibold" style={{ color }}>
                           {r.archetype ?? "Unknown Archetype"}
                         </div>
                         <div className="text-xs text-gray-600">{date}</div>

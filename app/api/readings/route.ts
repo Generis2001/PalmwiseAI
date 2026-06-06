@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { userAddress, readingHash, encryptedReading, txHash, blockNumber, archetype } =
+    const { userAddress, readingHash, encryptedReading, palmImage, txHash, blockNumber, archetype } =
       body;
 
     if (!userAddress || !readingHash || !encryptedReading) {
@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
         userAddress: userAddress.toLowerCase(),
         readingHash,
         encryptedReading,
+        palmImage: palmImage ?? null,
         txHash,
         blockNumber,
         archetype,

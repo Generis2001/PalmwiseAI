@@ -183,25 +183,26 @@ export function usePalmReading() {
           ? (event as { topics: string[] }).topics[2]
           : null;
 
-        if (onChainHash) {
-          setReadingHash(onChainHash);
-          // Step 10: Persist encrypted reading to Neon
-          await fetch("/api/readings", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              userAddress: address,
-              readingHash: onChainHash,
-              encryptedReading: spcCalls[0].output,
-              txHash: hash,
-              blockNumber: Number(ritualReceipt.blockNumber),
-              archetype: decoded.archetype,
-            }),
-          });
-        }
+        // Always persist — use on-chain hash if found, fall back to txHash so the
+        // record is always created regardless of whether Ritual exposes event logs.
+        const savedHash = onChainHash ?? hash;
+        setReadingHash(savedHash);
+        await fetch("/api/readings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userAddress: address,
+            readingHash: savedHash,
+            encryptedReading: spcCalls[0].output,
+            palmImage: base64Image,
+            txHash: hash,
+            blockNumber: Number(ritualReceipt.blockNumber),
+            archetype: decoded.archetype,
+          }),
+        }).catch(() => {}); // best-effort — don't let a DB error abort the reading display
 
         setStatus("complete");
-        return { reading: decoded, hash: onChainHash, txHash: hash };
+        return { reading: decoded, hash: savedHash, txHash: hash };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         setFailedAt(status);

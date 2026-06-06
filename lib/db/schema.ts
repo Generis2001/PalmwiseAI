@@ -7,7 +7,8 @@ export const readings = pgTable("readings", {
   encryptedReading: text("encrypted_reading").notNull(),
   txHash: text("tx_hash"),
   blockNumber: bigint("block_number", { mode: "number" }),
-  archetype: text("archetype"), // stored plaintext for history list display
+  archetype: text("archetype"),
+  palmImage: text("palm_image"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
