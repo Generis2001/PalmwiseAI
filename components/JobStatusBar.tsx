@@ -9,13 +9,28 @@ interface Props {
 }
 
 const STEPS: { key: ReadingStatus; label: string }[] = [
-  { key: "compressing", label: "Preparing" },
-  { key: "reading", label: "Reading Palm" },
-  { key: "saving", label: "Saving" },
+  { key: "compressing", label: "Compressing" },
+  { key: "analyzing", label: "AI Vision" },
+  { key: "fetching-executor", label: "Executor" },
+  { key: "locking", label: "Locking" },
+  { key: "submitting", label: "Submitting" },
+  { key: "committed", label: "Committed" },
+  { key: "processing", label: "On-chain AI" },
+  { key: "settling", label: "Settling" },
   { key: "complete", label: "Complete" },
 ];
 
-const ORDER: ReadingStatus[] = ["compressing", "reading", "saving", "complete"];
+const ORDER: ReadingStatus[] = [
+  "compressing",
+  "analyzing",
+  "fetching-executor",
+  "locking",
+  "submitting",
+  "committed",
+  "processing",
+  "settling",
+  "complete",
+];
 
 function stepIndex(s: ReadingStatus) {
   return ORDER.indexOf(s);
@@ -63,7 +78,7 @@ export function JobStatusBar({ status, error, failedAt }: Props) {
               </div>
               {!isLast && (
                 <div
-                  className={`h-px w-8 sm:w-14 mt-[-14px] transition-colors ${
+                  className={`h-px w-4 sm:w-6 mt-[-14px] transition-colors ${
                     done ? "bg-[#19D184]" : "bg-gray-800"
                   }`}
                 />
@@ -74,7 +89,9 @@ export function JobStatusBar({ status, error, failedAt }: Props) {
       </div>
 
       {failed && error && (
-        <p className="mt-3 text-sm text-center text-red-400">{error}</p>
+        <p className={`mt-3 text-sm text-center ${error.includes("still being processed") ? "text-yellow-400" : "text-red-400"}`}>
+          {error}
+        </p>
       )}
     </div>
   );

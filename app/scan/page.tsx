@@ -8,22 +8,31 @@ import { PalmWiseLogo } from "@/components/PalmWiseLogo";
 import { PalmScanner } from "@/components/PalmScanner";
 import { ReadingDisplay } from "@/components/ReadingDisplay";
 import { JobStatusBar } from "@/components/JobStatusBar";
-import { usePalmReading } from "@/hooks/usePalmReading";
+import { WalletStatus } from "@/components/WalletStatus";
 import { Watermark } from "@/components/Watermark";
+import { usePalmReading } from "@/hooks/usePalmReading";
+import { useSenderLock } from "@/hooks/useSenderLock";
+import { useRitualWallet } from "@/hooks/useRitualWallet";
 
 export default function ScanPage() {
   const { isConnected } = useAccount();
   const { submitReading, status, reading, readingHash, txHash, error, failedAt, reset } =
     usePalmReading();
+  const { isLocked } = useSenderLock();
+  const { hasSufficientFunds } = useRitualWallet();
+
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
-  const handleFile = useCallback((f: File) => {
-    setFile(f);
-    const url = URL.createObjectURL(f);
-    setPreview(url);
-    reset();
-  }, [reset]);
+  const handleFile = useCallback(
+    (f: File) => {
+      setFile(f);
+      const url = URL.createObjectURL(f);
+      setPreview(url);
+      reset();
+    },
+    [reset]
+  );
 
   async function handleSubmit() {
     if (!file) return;
@@ -32,7 +41,8 @@ export default function ScanPage() {
 
   const isProcessing =
     status !== "idle" && status !== "complete" && status !== "failed";
-  const canSubmit = isConnected && file !== null && !isProcessing;
+  const canSubmit =
+    isConnected && file !== null && !isProcessing && !isLocked && hasSufficientFunds;
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -63,13 +73,27 @@ export default function ScanPage() {
           </div>
         ) : (
           <>
+            <WalletStatus />
+
             <PalmScanner
               onFile={handleFile}
               disabled={isProcessing}
               preview={preview}
             />
 
-            {status !== "idle" && <JobStatusBar status={status} error={error} failedAt={status === "failed" ? failedAt : null} />}
+            {isLocked && (
+              <div className="text-xs text-yellow-400 text-center">
+                A reading is already in progress from this wallet. Please wait.
+              </div>
+            )}
+
+            {status !== "idle" && (
+              <JobStatusBar
+                status={status}
+                error={error}
+                failedAt={status === "failed" ? failedAt : null}
+              />
+            )}
 
             {status === "complete" && reading ? (
               <ReadingDisplay reading={reading} txHash={txHash} />
@@ -84,11 +108,15 @@ export default function ScanPage() {
                 }`}
               >
                 {isProcessing
-                  ? status === "reading"
-                    ? "Reading your palm…"
-                    : status === "saving"
-                    ? "Saving…"
-                    : "Preparing…"
+                  ? status === "analyzing"
+                    ? "Analyzing palm…"
+                    : status === "locking"
+                    ? "Activating lock…"
+                    : status === "submitting" || status === "committed"
+                    ? "Submitting to Ritual…"
+                    : status === "processing" || status === "settling"
+                    ? "GLM thinking…"
+                    : "Working…"
                   : file
                   ? "Get My Reading"
                   : "Select a Palm Photo First"}
