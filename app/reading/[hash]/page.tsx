@@ -39,18 +39,28 @@ export default function ReadingPage({
 
         setTxHash(row.txHash ?? null);
 
-        // Retrieve ephemeral private key from localStorage
-        const privKey = localStorage.getItem(
-          `palmwise_privkey_${address}`
-        ) as Hex | null;
-        if (!privKey) {
-          setError(
-            "Decryption key not found. This reading can only be viewed on the device and browser it was created on."
-          );
-          return;
+        // New readings store plain JSON; old Ritual readings are ECIES-encrypted.
+        let decoded: PalmReading;
+        try {
+          const plain = JSON.parse(row.encryptedReading) as PalmReading;
+          if (plain && typeof plain.archetype === "string") {
+            decoded = plain;
+          } else {
+            throw new Error("not a plain reading");
+          }
+        } catch {
+          // Fall back to ECIES decrypt for old Ritual-path readings
+          const privKey = localStorage.getItem(
+            `palmwise_privkey_${address}`
+          ) as Hex | null;
+          if (!privKey) {
+            setError(
+              "Decryption key not found. This reading can only be viewed on the device and browser it was created on."
+            );
+            return;
+          }
+          decoded = decodeReading(row.encryptedReading as Hex, privKey);
         }
-
-        const decoded = decodeReading(row.encryptedReading as Hex, privKey);
         setReading(decoded);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load reading");

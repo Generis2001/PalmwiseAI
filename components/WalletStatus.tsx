@@ -4,23 +4,9 @@ import { useRitualWallet } from "@/hooks/useRitualWallet";
 import { useState } from "react";
 
 export function WalletStatus() {
-  const { balance, balanceEth, deposit, withdraw, hasSufficientFunds, refetchBalance } =
+  const { balanceEth, deposit, hasSufficientFunds, refetchBalance } =
     useRitualWallet();
   const [depositing, setDepositing] = useState(false);
-  const [withdrawing, setWithdrawing] = useState(false);
-
-  async function handleWithdraw() {
-    if (!balance || balance === 0n) return;
-    setWithdrawing(true);
-    try {
-      await withdraw(balance as bigint);
-      await refetchBalance();
-    } catch {
-      // user rejected
-    } finally {
-      setWithdrawing(false);
-    }
-  }
 
   async function handleDeposit() {
     setDepositing(true);
@@ -42,20 +28,15 @@ export function WalletStatus() {
           : "border-yellow-500/30 bg-yellow-500/5"
       }`}
     >
-      <div className="flex items-center gap-3 flex-wrap">
-        <div>
-          <span className="text-gray-400">RITUAL balance:</span>{" "}
-          <span className={`font-mono font-semibold ${hasSufficientFunds ? "text-[#19D184]" : "text-yellow-400"}`}>
-            {balanceEth.toFixed(4)} RITUAL
-          </span>
-        </div>
-        <button
-          onClick={handleWithdraw}
-          disabled={withdrawing || !balance || balance === 0n}
-          className="px-3 py-1 rounded-md border border-gray-700 text-gray-400 text-xs hover:border-gray-500 hover:text-white disabled:opacity-40 transition-colors"
+      <div>
+        <span className="text-gray-400">RITUAL balance:</span>{" "}
+        <span
+          className={`font-mono font-semibold ${
+            hasSufficientFunds ? "text-[#19D184]" : "text-yellow-400"
+          }`}
         >
-          {withdrawing ? "Withdrawing…" : "Withdraw"}
-        </button>
+          {balanceEth.toFixed(4)} RITUAL
+        </span>
       </div>
       {!hasSufficientFunds && (
         <button

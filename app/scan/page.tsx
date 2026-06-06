@@ -8,19 +8,13 @@ import { PalmWiseLogo } from "@/components/PalmWiseLogo";
 import { PalmScanner } from "@/components/PalmScanner";
 import { ReadingDisplay } from "@/components/ReadingDisplay";
 import { JobStatusBar } from "@/components/JobStatusBar";
-import { WalletStatus } from "@/components/WalletStatus";
 import { usePalmReading } from "@/hooks/usePalmReading";
-import { useSenderLock } from "@/hooks/useSenderLock";
-import { useRitualWallet } from "@/hooks/useRitualWallet";
 import { Watermark } from "@/components/Watermark";
 
 export default function ScanPage() {
   const { isConnected } = useAccount();
   const { submitReading, status, reading, readingHash, txHash, error, failedAt, reset } =
     usePalmReading();
-  const { isLocked } = useSenderLock();
-  const { hasSufficientFunds } = useRitualWallet();
-
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
@@ -38,12 +32,7 @@ export default function ScanPage() {
 
   const isProcessing =
     status !== "idle" && status !== "complete" && status !== "failed";
-  const canSubmit =
-    isConnected &&
-    file !== null &&
-    !isProcessing &&
-    !isLocked &&
-    hasSufficientFunds;
+  const canSubmit = isConnected && file !== null && !isProcessing;
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -74,19 +63,11 @@ export default function ScanPage() {
           </div>
         ) : (
           <>
-            <WalletStatus />
-
             <PalmScanner
               onFile={handleFile}
               disabled={isProcessing}
               preview={preview}
             />
-
-            {isLocked && (
-              <div className="text-xs text-yellow-400 text-center">
-                A reading is already in progress from this wallet. Please wait.
-              </div>
-            )}
 
             {status !== "idle" && <JobStatusBar status={status} error={error} failedAt={status === "failed" ? failedAt : null} />}
 
@@ -103,15 +84,11 @@ export default function ScanPage() {
                 }`}
               >
                 {isProcessing
-                  ? status === "analyzing"
-                    ? "Analyzing palm…"
-                    : status === "locking"
-                    ? "Activating lock…"
-                    : status === "submitting" || status === "committed"
-                    ? "Submitting to Ritual…"
-                    : status === "processing" || status === "settling"
-                    ? "GLM thinking…"
-                    : "Working…"
+                  ? status === "reading"
+                    ? "Reading your palm…"
+                    : status === "saving"
+                    ? "Saving…"
+                    : "Preparing…"
                   : file
                   ? "Get My Reading"
                   : "Select a Palm Photo First"}

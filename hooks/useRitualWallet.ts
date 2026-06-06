@@ -37,17 +37,8 @@ export function useRitualWallet() {
     });
   }
 
-  async function withdraw(amountWei: bigint) {
-    return writeContractAsync({
-      address: RITUAL_WALLET_ADDRESS,
-      abi: ritualWalletAbi,
-      functionName: "withdraw",
-      args: [amountWei],
-    });
-  }
-
   const balanceEth = balance ? Number(balance) / 1e18 : 0;
   const hasSufficientFunds = balanceEth >= 0.4;
 
-  return { balance, balanceEth, lockUntil, deposit, withdraw, hasSufficientFunds, refetchBalance };
+  return { balance, balanceEth, lockUntil, deposit, hasSufficientFunds, refetchBalance };
 }
