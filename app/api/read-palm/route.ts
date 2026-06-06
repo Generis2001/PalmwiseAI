@@ -21,6 +21,13 @@ const SYSTEM_PROMPT =
   '"daily_reflection":"max 20 words",' +
   '"reading_summary":"2-3 sentence narrative"}';
 
+type GeminiResponse = {
+  candidates?: Array<{
+    content?: { parts?: Array<{ text?: string }> };
+  }>;
+  error?: { message: string };
+};
+
 export async function POST(req: NextRequest) {
   try {
     const { base64Image } = await req.json();
@@ -28,55 +35,50 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No image provided" }, { status: 400 });
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: "AI service not configured" }, { status: 500 });
     }
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: [
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:image/jpeg;base64,${base64Image}`,
-                  detail: "high",
-                },
-              },
-              { type: "text", text: "Read this palm and return the JSON." },
-            ],
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents: [
+            {
+              parts: [
+                { inlineData: { mimeType: "image/jpeg", data: base64Image } },
+                { text: "Read this palm and return the JSON." },
+              ],
+            },
+          ],
+          generationConfig: {
+            responseMimeType: "application/json",
+            maxOutputTokens: 1500,
+            temperature: 0.7,
           },
-        ],
-        max_tokens: 1500,
-        response_format: { type: "json_object" },
-      }),
-    });
+        }),
+      }
+    );
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("[read-palm] OpenAI error:", errText);
+    const data = (await response.json()) as GeminiResponse;
+
+    if (!response.ok || data.error) {
+      console.error("[read-palm] Gemini error:", data.error?.message ?? response.status);
       return NextResponse.json({ error: "AI service error" }, { status: 500 });
     }
 
-    const data = await response.json() as {
-      choices?: Array<{ message: { content: string } }>;
-    };
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) {
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) {
       return NextResponse.json({ error: "No response from AI" }, { status: 500 });
     }
 
-    const reading = JSON.parse(content) as PalmReading;
+    // Strip any accidental markdown fences
+    const cleaned = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/, "").trim();
+    const reading = JSON.parse(cleaned) as PalmReading;
     return NextResponse.json({ reading });
   } catch (err) {
     console.error("[read-palm]", err);
