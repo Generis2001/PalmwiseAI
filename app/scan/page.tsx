@@ -52,7 +52,15 @@ export default function ScanPage() {
         <Link href="/">
           <PalmWiseLogo />
         </Link>
-        <ConnectButton />
+        <div className="flex items-center gap-4">
+          <Link
+            href="/history"
+            className="text-sm text-gray-400 hover:text-white transition-colors"
+          >
+            My Readings
+          </Link>
+          <ConnectButton />
+        </div>
       </nav>
 
       <div className="max-w-xl mx-auto px-6 py-12 space-y-6">
